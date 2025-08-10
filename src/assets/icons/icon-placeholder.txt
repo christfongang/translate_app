@@ -1,0 +1,19 @@
+# Icônes PWA
+
+Pour une PWA complète, vous devez ajouter les icônes suivantes dans ce dossier :
+
+- icon-72x72.png
+- icon-96x96.png  
+- icon-128x128.png
+- icon-144x144.png
+- icon-152x152.png
+- icon-192x192.png
+- icon-384x384.png
+- icon-512x512.png
+
+Vous pouvez générer ces icônes à partir d'une image de base en utilisant :
+- https://realfavicongenerator.net/
+- https://www.pwabuilder.com/imageGenerator
+- Ou tout autre générateur d'icônes PWA
+
+L'icône de base devrait être de 512x512px minimum avec un design simple et reconnaissable.
