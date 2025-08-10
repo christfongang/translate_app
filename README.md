@@ -239,7 +239,34 @@ GOOGLE_CLOUD_API_KEY=your-google-key
 
 ### Solutions Cloud (Recommandées)
 
-#### 1. **Google Cloud Platform** ⭐ **RECOMMANDÉ**
+#### 1. **Microsoft Azure Cognitive Services** ⭐ **RECOMMANDÉ**
+```typescript
+// Configuration
+const speechConfig = SpeechConfig.fromSubscription(key, region);
+const translationConfig = SpeechTranslationConfig.fromSubscription(key, region);
+const translatorClient = new TranslatorText(key, endpoint, region);
+
+// Avantages
+✅ Streaming en temps réel
+✅ 100+ langues supportées
+✅ Traduction audio directe
+✅ Très haute précision
+✅ Documentation excellente
+✅ Intégration Office 365
+✅ Support conversation multi-participants
+
+// Coût estimé
+💰 ~$1/heure d'audio
+💰 ~$10/million de caractères traduits
+```
+
+**APIs à utiliser :**
+- `Azure Speech Service` - Transcription audio en temps réel
+- `Azure Translator` - Traduction de texte
+- `Azure Speech Translation` - Traduction audio directe
+- `Azure Text-to-Speech` - Synthèse vocale (optionnel)
+
+#### 2. **Google Cloud Platform**
 ```typescript
 // Configuration
 const speechClient = new SpeechClient();
@@ -252,7 +279,7 @@ const translateClient = new TranslateClient();
 ✅ Documentation excellente
 ✅ Pricing transparent
 
-// Coût estimé
+// Coût estimé  
 💰 ~$0.006/15 secondes d'audio
 💰 ~$20/million de caractères traduits
 ```
@@ -261,28 +288,6 @@ const translateClient = new TranslateClient();
 - `Google Cloud Speech-to-Text API` - Transcription audio
 - `Google Cloud Translation API` - Traduction de texte
 - `Google Cloud Text-to-Speech API` - Synthèse vocale (optionnel)
-
-#### 2. **Microsoft Azure Cognitive Services**
-```typescript
-// Configuration
-const speechConfig = SpeechConfig.fromSubscription(key, region);
-const translationConfig = SpeechTranslationConfig.fromSubscription(key, region);
-
-// Avantages
-✅ Traduction audio directe
-✅ Intégration Office 365
-✅ Bonne précision
-✅ Support conversation
-
-// Coût estimé  
-💰 ~$1/heure d'audio
-💰 ~$10/million de caractères
-```
-
-**APIs à utiliser :**
-- `Azure Speech Service` - Transcription et traduction
-- `Azure Translator` - Traduction de texte
-- `Azure Speech Translation` - Traduction audio directe
 
 #### 3. **Amazon Web Services (AWS)**
 ```typescript
@@ -395,13 +400,22 @@ POST /api/audio/translate
 // server.js
 const express = require('express');
 const multer = require('multer');
-const { SpeechClient } = require('@google-cloud/speech');
-const { Translate } = require('@google-cloud/translate').v2;
+const sdk = require('microsoft-cognitiveservices-speech-sdk');
+const { TranslatorText } = require('@azure/cognitiveservices-translator');
 
 const app = express();
 const upload = multer();
-const speechClient = new SpeechClient();
-const translate = new Translate();
+
+// Configuration Azure
+const speechConfig = sdk.SpeechConfig.fromSubscription(
+  process.env.AZURE_SPEECH_KEY, 
+  process.env.AZURE_SPEECH_REGION
+);
+const translatorClient = new TranslatorText(
+  process.env.AZURE_TRANSLATOR_KEY,
+  process.env.AZURE_TRANSLATOR_ENDPOINT,
+  process.env.AZURE_TRANSLATOR_REGION
+);
 
 // Endpoint de traduction audio
 app.post('/api/audio/translate', upload.single('audio'), async (req, res) => {
@@ -409,25 +423,30 @@ app.post('/api/audio/translate', upload.single('audio'), async (req, res) => {
     const { sourceLang, targetLang } = req.body;
     const audioBuffer = req.file.buffer;
     
-    // 1. Transcription audio
-    const [response] = await speechClient.recognize({
-      audio: { content: audioBuffer.toString('base64') },
-      config: {
-        encoding: 'WEBM_OPUS',
-        sampleRateHertz: 48000,
-        languageCode: sourceLang,
-      },
+    // 1. Transcription audio avec Azure Speech
+    const audioConfig = sdk.AudioConfig.fromWavFileInput(audioBuffer);
+    speechConfig.speechRecognitionLanguage = sourceLang;
+    const recognizer = new sdk.SpeechRecognizer(speechConfig, audioConfig);
+    
+    const transcription = await new Promise((resolve, reject) => {
+      recognizer.recognizeOnceAsync(result => {
+        if (result.reason === sdk.ResultReason.RecognizedSpeech) {
+          resolve(result.text);
+        } else {
+          reject(new Error('Transcription failed'));
+        }
+      });
     });
     
-    const transcription = response.results
-      .map(result => result.alternatives[0].transcript)
-      .join('\n');
-    
-    // 2. Traduction
-    const [translation] = await translate.translate(transcription, {
+    // 2. Traduction avec Azure Translator
+    const translateResponse = await translatorClient.translate([{
+      text: transcription
+    }], {
       from: sourceLang,
-      to: targetLang,
+      to: [targetLang]
     });
+    
+    const translation = translateResponse[0].translations[0].text;
     
     res.json({
       originalText: transcription,
